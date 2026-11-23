@@ -1,5 +1,5 @@
 from django import forms
-from .models import Student, Enrollment, EnrollmentSubject, Payment
+from .models import Student, Enrollment, Enrollmentsubject, Payment
 
 class StudentForm(forms.ModelForm):
     class Meta:

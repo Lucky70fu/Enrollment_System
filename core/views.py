@@ -15,9 +15,9 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from .models import (
-    Department, Program, Student, SchoolTerm, Subject, CurriculumSubject,
-    Instructor, Room, Section, SubjectOffering, ClassSchedule, Enrollment,
-    EnrollmentSubject, Fee, AssessmentItem, Payment, Grade, AuditLog,
+    Department, Program, Student, Schoolterm, Subject, Curriculumsubject,
+    Instructor, Room, Section, Subjectoffering, Classschedule, Enrollment,
+    Enrollmentsubject, Fee, Assessmentitem, Payment, Grade, Auditlog,
 )
 from .forms import StudentForm, EnrollmentForm, PaymentForm
 from .permissions import can_access
@@ -71,7 +71,7 @@ def student_list(request):
     denied = guard(request, "students")
     if denied:
         return denied
-    terms = SchoolTerm.objects.order_by("-school_year", "-id")
+    terms = Schoolterm.objects.order_by("-school_year", "-id")
     term_id = request.GET.get("term")
     selected_term = terms.filter(pk=term_id).first() if term_id else terms.filter(is_open=True).first()
     status = request.GET.get("status", "")
@@ -140,7 +140,7 @@ def student_create(request):
     form = StudentForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         student = form.save()
-        AuditLog.objects.create(user=request.user, action="Created student", object_type="Student", object_id=student.pk)
+        Auditlog.objects.create(user=request.user, action="Created student", object_type="Student", object_id=student.pk)
         try:
             created, account_message = create_student_portal_account(student)
             if created:
@@ -178,7 +178,7 @@ def student_create_portal_account(request, pk):
     try:
         created, account_message = create_student_portal_account(student)
         if created:
-            AuditLog.objects.create(user=request.user, action="Created student portal account", object_type="Student", object_id=student.pk)
+            Auditlog.objects.create(user=request.user, action="Created student portal account", object_type="Student", object_id=student.pk)
             messages.success(request, account_message)
         else:
             messages.warning(request, account_message)
@@ -198,7 +198,7 @@ def student_edit(request, pk):
     form = StudentForm(request.POST or None, instance=student)
     if request.method == "POST" and form.is_valid():
         form.save()
-        AuditLog.objects.create(user=request.user, action="Updated student", object_type="Student", object_id=student.pk)
+        Auditlog.objects.create(user=request.user, action="Updated student", object_type="Student", object_id=student.pk)
         messages.success(request, "Student record updated.")
         return redirect("student_detail", pk=student.pk)
     return render(request, "core/form.html", {"form": form, "title": "Edit Student", "cancel_url": reverse("student_detail", args=[student.pk])})
@@ -215,7 +215,7 @@ def student_delete(request, pk):
     student = get_object_or_404(Student, pk=pk)
     try:
         with transaction.atomic():
-            AuditLog.objects.create(user=request.user, action="Deleted student", object_type="Student", object_id=student.pk)
+            Auditlog.objects.create(user=request.user, action="Deleted student", object_type="Student", object_id=student.pk)
             student.delete()
         messages.success(request, "Student record deleted.")
     except Exception:
@@ -230,11 +230,11 @@ def academic_overview(request):
         return denied
     return render(request, "core/academic_overview.html", {
         "programs": Program.objects.select_related("department"), "subjects": Subject.objects.all(),
-        "terms": SchoolTerm.objects.all(), "colleges": Department.objects.all(),
-        "curricula": CurriculumSubject.objects.select_related("program", "subject"),
+        "terms": Schoolterm.objects.all(), "colleges": Department.objects.all(),
+        "curricula": Curriculumsubject.objects.select_related("program", "subject"),
         "instructors": Instructor.objects.select_related("user", "department"),
         "rooms": Room.objects.all(), "sections": Section.objects.select_related("program", "term"),
-        "offerings": SubjectOffering.objects.select_related("curriculum_subject__subject", "section"),
+        "offerings": Subjectoffering.objects.select_related("curriculum_subject__subject", "section"),
         "fees": Fee.objects.all(),
     })
 
@@ -243,19 +243,19 @@ def academic_overview(request):
 MANAGED_MODELS = {
     "colleges": (Department, "academics", "Colleges"),
     "programs": (Program, "academics", "Academic Programs"),
-    "terms": (SchoolTerm, "academics", "School Terms"),
+    "terms": (Schoolterm, "academics", "School Terms"),
     "subjects": (Subject, "academics", "Subjects"),
-    "curriculum": (CurriculumSubject, "academics", "Curriculum Subjects"),
+    "curriculum": (Curriculumsubject, "academics", "Curriculum Subjects"),
     "instructors": (Instructor, "academics", "Instructors"),
     "rooms": (Room, "academics", "Rooms"),
     "sections": (Section, "academics", "Sections"),
-    "offerings": (SubjectOffering, "academics", "Subject Offerings"),
-    "schedules": (ClassSchedule, "schedules", "Class Schedules"),
+    "offerings": (Subjectoffering, "academics", "Subject Offerings"),
+    "schedules": (Classschedule, "schedules", "Class Schedules"),
     "fees": (Fee, "billing", "Fees"),
     "enrollment-records": (Enrollment, "enrollment", "Enrollment Records"),
     "grades-records": (Grade, "grades", "Grade Records"),
-    "assessment-items": (AssessmentItem, "billing", "Assessment Items"),
-    "enrollment-subjects": (EnrollmentSubject, "enrollment", "Enrolled Subjects"),
+    "assessment-items": (Assessmentitem, "billing", "Assessment Items"),
+    "enrollment-subjects": (Enrollmentsubject, "enrollment", "Enrolled Subjects"),
 }
 
 
@@ -276,9 +276,9 @@ def managed_list(request, slug):
     if request.user.groups.filter(name="Student").exists():
         if model is Enrollment:
             qs = qs.filter(student__user=request.user)
-        elif model is EnrollmentSubject:
+        elif model is Enrollmentsubject:
             qs = qs.filter(enrollment__student__user=request.user)
-        elif model is AssessmentItem:
+        elif model is Assessmentitem:
             qs = qs.filter(enrollment__student__user=request.user)
         elif model is Grade:
             qs = qs.filter(enrollment_subject__enrollment__student__user=request.user)
@@ -299,7 +299,7 @@ def managed_form(request, slug, pk=None):
         excluded = ["submitted_at", "approved_by"]
     if model is Payment:
         excluded = ["recorded_by", "paid_at"]
-    if model is AuditLog:
+    if model is Auditlog:
         excluded = ["user", "created_at"]
     ModelForm = forms.modelform_factory(model, fields="__all__", exclude=excluded, widgets={
         "starts_on": forms.DateInput(attrs={"type": "date"}),
@@ -310,7 +310,7 @@ def managed_form(request, slug, pk=None):
     form = ModelForm(request.POST or None, instance=instance)
     if request.method == "POST" and form.is_valid():
         obj = form.save()
-        AuditLog.objects.create(user=request.user, action=("Updated " if instance else "Created ") + title, object_type=model.__name__, object_id=obj.pk)
+        Auditlog.objects.create(user=request.user, action=("Updated " if instance else "Created ") + title, object_type=model.__name__, object_id=obj.pk)
         messages.success(request, f"{title[:-1] if title.endswith('s') else title} saved.")
         return redirect("managed_list", slug=slug)
     return render(request, "core/form.html", {"form": form, "title": ("Edit " if instance else "Add ") + title, "cancel_url": reverse("managed_list", args=[slug])})
@@ -328,7 +328,7 @@ def managed_delete(request, slug, pk):
     obj = get_object_or_404(model, pk=pk)
     try:
         with transaction.atomic():
-            AuditLog.objects.create(user=request.user, action="Deleted " + title, object_type=model.__name__, object_id=obj.pk)
+            Auditlog.objects.create(user=request.user, action="Deleted " + title, object_type=model.__name__, object_id=obj.pk)
             obj.delete()
         messages.success(request, "Record deleted.")
     except Exception:
@@ -360,7 +360,7 @@ def enrollment_create(request):
         if request.user.groups.filter(name="Student").exists():
             enrollment.student = Student.objects.get(user=request.user)
         enrollment.save()
-        AuditLog.objects.create(user=request.user, action="Submitted enrollment", object_type="Enrollment", object_id=enrollment.pk)
+        Auditlog.objects.create(user=request.user, action="Submitted enrollment", object_type="Enrollment", object_id=enrollment.pk)
         messages.success(request, "Enrollment application submitted. Registrar review is required.")
         return redirect("enrollment_list")
     return render(request, "core/form.html", {"form": form, "title": "New Enrollment Application", "cancel_url": reverse("enrollment_list")})
@@ -394,7 +394,7 @@ def record_payment(request):
         payment = form.save(commit=False)
         payment.recorded_by = request.user
         payment.save()
-        AuditLog.objects.create(user=request.user, action="Recorded payment", object_type="Payment", object_id=payment.pk)
+        Auditlog.objects.create(user=request.user, action="Recorded payment", object_type="Payment", object_id=payment.pk)
         messages.success(request, "Payment recorded.")
         return redirect("billing_list")
     return render(request, "core/form.html", {"form": form, "title": "Record Payment", "cancel_url": reverse("billing_list")})
@@ -405,7 +405,7 @@ def schedule_list(request):
     denied = guard(request, "schedules")
     if denied:
         return denied
-    schedules = ClassSchedule.objects.select_related("room", "offering__curriculum_subject__subject", "offering__instructor", "offering__section")
+    schedules = Classschedule.objects.select_related("room", "offering__curriculum_subject__subject", "offering__instructor", "offering__section")
     return render(request, "core/schedule_list.html", {"schedules": schedules})
 
 
